@@ -3,59 +3,72 @@ from gekko import GEKKO
 import matplotlib.pyplot as plt
 
 # set up parameters
-v_C = np.array([5.31146, 0.52655])
-v_k1 = np.array([9694.09, 0.0])
-v_k2 = np.array([0.0, 60.5227])
-v_k3 = np.array([2.85e-5, 321.07])
-lo = 0
-hi = 1
+# --------------------------------------
+v_C         = np.array([5.31146, 0.52655])
+v_k1        = np.array([9694.09, 0.0])
+v_k2        = np.array([0.0, 60.5227])
+v_k3        = np.array([2.85e-5, 321.07])
+lo          = 0
+hi          = 1
 
 # set up path
-v_goal = 2000 # m
-speed_limit = 25 / 2.23694 # mph > m/s
+# --------------------------------------
+v_goal      = 2000                        # m
+speed_limit = 25 / 2.23694                # mph --> m/s
 
 # set up the gekko model
-gek = GEKKO()
+# --------------------------------------
+gek         = GEKKO()
 
 # set up the time
-num_points = 70
-max_time = 300
-gek.time = np.linspace(0, 1, num_points)
+# --------------------------------------
+num_points  = 70
+max_time    = 300
+gek.time    = np.linspace(0, 1, num_points)
 
-# set up the Manipulated Variables
-G = gek.MV(value=0, lb=0)
-Fb = gek.MV(value=0, lb=0)
+# MV Initialization
+# --------------------------------------
+G           = gek.MV(value=0, lb=0)
+Fb          = gek.MV(value=0, lb=0)
 
 # set up the time variable (to minimize)
-tf = gek.FV(value=120, lb=0, ub=max_time)
+# --------------------------------------
+tf          = gek.FV(value=120, lb=0, ub=max_time)
 
 # turn them 'on'
+# --------------------------------------
 for s in (G, Fb, tf):
 	s.STATUS = 1
 
-# set up the variables
-x = gek.Var(value=0, lb=0, ub=v_goal)
-v = gek.Var(value=0, lb=0, ub=speed_limit)
-a = gek.Var(value=0, ub=3, lb=-3)
-Fe = gek.Var(value=0)
-Fd = gek.Var(value=0)
-FUEL = gek.Var(value=0)
+# Variable Initialization
+# --------------------------------------
+x           = gek.Var(value=0, lb=0, ub=v_goal)       # Position (miles)
+v           = gek.Var(value=0, lb=0, ub=speed_limit)  # Velocity 
+a           = gek.Var(value=0, ub=3, lb=-3)           # Acceleration 
+Fe          = gek.Var(value=0)                        # Fuel Efficiency
+Fd          = gek.Var(value=0)                        # Fuel Consumption(?) 
+FUEL        = gek.Var(value=0)
 
 # add stops
-gek.fix(x, num_points-1, v_goal) # destination
+# --------------------------------------
+gek.fix(x, num_points-1, v_goal)                      # destination
+
 # stop sign
+# --------------------------------------
 gek.fix(v, int(num_points/3), 0) 
 
-# set up the parameters
-m = gek.Param(value=1600)
-C = gek.Param(value=v_C[lo])
-k1 = gek.Param(value=v_k1[lo])
-k2 = gek.Param(value=0*v_k2[lo])
-k3 = gek.Param(value=v_k3[lo])
+# Parameter Initialization
+# --------------------------------------
+m           = gek.Param(value=1600)
+C           = gek.Param(value=v_C[lo])
+k1          = gek.Param(value=v_k1[lo])
+k2          = gek.Param(value=0*v_k2[lo])
+k3          = gek.Param(value=v_k3[lo])
 
-# set up the equations
-gek.Equation(v.dt() / tf == a)
-gek.Equation(x.dt() / tf == v)
+# Equations
+# --------------------------------------
+gek.Equation(v.dt()/tf == a)
+gek.Equation(x.dt()/tf == v)
 gek.Equation(Fd == C * v**2)
 gek.Equation(Fe == k1*G/(v+1) + k2*G**2 + k3*G**(1/2))
 gek.Equation(a == (Fe - Fd - Fb) / m)
@@ -63,32 +76,36 @@ gek.Equation(FUEL.dt() / tf == G/3600)
 gek.Equation(G * Fb < 1)
 
 # set up the goal
-#goal = np.full(max_time+1, v_goal)
-#goal = gek.Param(value=goal)
-last = np.zeros(num_points)
-last[-1] = 1
-last = gek.Param(value=last)
-#arrive = np.zeros(max_time+1)
+# --------------------------------------
+#goal        = np.full(max_time+1, v_goal)
+#goal        = gek.Param(value=goal)
+last        = np.zeros(num_points)
+last[-1]    = 1
+last        = gek.Param(value=last)
+#arrive      = np.zeros(max_time+1)
 #arrive[min_time:] = 1
-#arrive = gek.Param(value=arrive)
+#arrive      = gek.Param(value=arrive)
 
-# set up the solver
+# GEKKO Options
+# --------------------------------------
 gek.options.IMODE = 6
 
-# set up the objective
+# Objective
+# --------------------------------------
 gek.Obj(tf + 7*FUEL*last)
 
-# solve
 gek.solve(disp=False)
 
 # calculate the instantaneous mpg
+# --------------------------------------
 mpg = np.array(v.value) *2.23694/ (np.array(G.value)**2+0.1) * np.array(G.value)
 
 print(FUEL[-1], "gallons used")
 print(tf.NEWVAL, "seconds taken")
-print(v_goal/FUEL[-1], "average miles per gallon")
+print((x.value[-1])*3.28084/5280/FUEL[-1], "average miles per gallon")
 
-# plot the results
+# Plot
+# --------------------------------------
 time = np.linspace(0, 1, num_points)*tf.NEWVAL
 plt.figure(figsize=(10, 10))
 plt.subplot(611)
@@ -114,4 +131,5 @@ plt.plot(time, Fd, '--', label='Fd')
 plt.ylabel('Force (N)')
 plt.xlabel('Time (s)')
 plt.legend()
+plt.tight_layout()
 plt.show()
