@@ -37,15 +37,15 @@ for fnum in fnums:
       acc_mps+=[np.mean([mps[i+1],mps[i]])]
       acc_gph+=[np.mean([gph[i+1],gph[i]])]
       
-      filtered_mps+=[mps[i+1],mps[i]]
-      filtered_time+=[time[i+1],time[i]]
-      filtered_gph+=[gph[i+1],gph[i]]
+      filtered_mps+=[mps[i],mps[i+1]]
+      filtered_time+=[time[i],time[i+1]]
+      filtered_gph+=[gph[i],gph[i+1]]
     
 
 
 
 #%% Clustering
-X=np.array([acc_mps,acc_gph]).transpose()
+X=np.array([acc_mps,acc_gph,acc_mps2]).transpose()
 agg_cluster_model = AgglomerativeClustering(linkage='ward', affinity='euclidean', n_clusters=3)
 db_model = DBSCAN(eps=1.1, min_samples=3)
     
@@ -61,8 +61,8 @@ ypred=KMeans(n_clusters=3).fit_predict(X)
 #ypred=agg_cluster_model.fit_predict(X)
 #ypred=db_model.fit_predict(X)
 #%%plot
-plt.close('all')
-#3d plot of data
+#plt.close('all')
+#color plot of data
 #fig,ax=plt.subplots()
 #plot1=ax.scatter(acc_mps,acc_gph,c=acc_mps2,cmap='viridis')
 #ax.set_xlabel('Velocity (m/s)')
@@ -73,24 +73,24 @@ plt.close('all')
 #plt.show()  
 
 #3d cluster plotting
-#fig = plt.figure()
-#ax = fig.add_subplot(111, projection='3d')
-#ax.scatter(acc_mps, acc_gph, acc_mps2)
-#ax.set_xlabel('Velocity (m/s)')
-#ax.set_ylabel('Fuel consumption (gal/hr)')
-#ax.set_zlabel(r'Acceleration (m/s$^2$)')
-#plt.show()
-
-#2d cluster plotting
 fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.grid(True)
-ax.scatter(acc_mps, acc_gph,c=ypred,cmap='brg')
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(acc_mps, acc_gph, acc_mps2,c=ypred,cmap='brg')
 ax.set_xlabel('Velocity (m/s)')
-#ax.set_xlabel(r'Acceleration (m/s$^2$)')
 ax.set_ylabel('Fuel consumption (gal/hr)')
+ax.set_zlabel(r'Acceleration (m/s$^2$)')
 plt.show()
-#%%Save to csv.
-df_send=pd.DataFrame({'time':filtered_time,'mps':filtered_mps,'gph':filtered_gph})
-df_send.to_csv('orig_vals_for_cluster_data.csv',index=False)
+
+##2d cluster plotting
+#fig = plt.figure()
+#ax = fig.add_subplot(111)
+#ax.grid(True)
+#ax.scatter(acc_mps, acc_gph,c=ypred,cmap='brg')
+#ax.set_xlabel('Velocity (m/s)')
+##ax.set_xlabel(r'Acceleration (m/s$^2$)')
+#ax.set_ylabel('Fuel consumption (gal/hr)')
+#plt.show()
+##%%Save to csv.
+#df_send=pd.DataFrame({'time':filtered_time,'mps':filtered_mps,'gph':filtered_gph})
+#df_send.to_csv('cluster_data_orig_vals.csv',index=False)
 
