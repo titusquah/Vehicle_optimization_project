@@ -13,14 +13,15 @@ from scipy.integrate import trapz
 from scipy.optimize import curve_fit
 plt.style.use('ggplot')
 plt.close('all')
-start=70
-img=5643
-data_1=pd.read_excel("IMG_{}_data.xlsx".format(img),header=0)
+start=0
+
+img=5648
+data_1=pd.read_excel(r"C:\Users\tq220\Documents\Tits things\2018-2019\Dynamic Optimization\Final Project\IMG_{}_data.xlsx".format(img),header=0)
 
 #%% load data in
-data_1.plot(x='t(s)')
-plt.grid(True)
-plt.show()
+#data_1.plot(x='t(s)')
+#plt.grid(True)
+#plt.show()
 tm=np.array(data_1['t(s)'])
 xpos=np.array(data_1['Position (mi)'])
 mph=np.array(data_1['V (mph)'])
@@ -37,6 +38,9 @@ s_per_hr=3600 #seconds/hour
 xpos=xpos*m_per_mi #mi * m/mi
 mps=mph*m_per_mi/s_per_hr #mi/hr * m/mi *hr/sec=m/s
 mps_2=np.array([(mps[i+1]-mps[i])/(tm[i+1]-tm[i]) for i in range(len(tm)-1)]) #m/s^2
+
+rar=mps_2>=0
+
 t=[]
 x=[]
 v=[]
@@ -44,14 +48,24 @@ a=[]
 at=[]
 cons=[]
 i=start
-while mps_2[i]>=0:
-  t.append(tm[i])
-  x.append(xpos[i])
-  v.append(mps[i])
-  a.append(mps_2[i])
-  at.append(atm[i])
-  cons.append(gph[i])
-  i+=1
+try:
+  while mps_2[i]>=0:
+    t.append(tm[i])
+    x.append(xpos[i])
+    v.append(mps[i])
+    a.append(mps_2[i])
+    at.append(atm[i])
+    cons.append(gph[i])
+    i+=1
+except:
+  t=tm[start:]
+  x=xpos[start:]
+  v=mps[start:]
+  a=mps_2[start:]
+  at=atm[start:]
+  cons=gph[start:]
+  
+  
 t=np.array(t)
 x=np.array(x)
 v=np.array(v)
@@ -80,12 +94,12 @@ def r_2(actual_y,predicted_y):
   return r_2
 
 p_opt,p_cov=curve_fit(car_velocity,(cons,v),v,bounds=param_bounds)
-##def velocity
+#def velocity
 #def fit_function(cons,m,C,k1,k2,k3):
 #  return quad(car_forces,0,max(t))
-#
 
-#
+
+
 
 fig,ax=plt.subplots(nrows=4,sharex=True)
 mng = plt.get_current_fig_manager()
@@ -120,6 +134,6 @@ plt.show()
 
 param_names=['m','C','k1','k2','k3']
 
-print(r_2(v,pred_v))
+print(r_2(v,pred_v),v[0])
 for i,val in enumerate(p_opt):
   print("{0}={1:.2f}".format(param_names[i],val))
