@@ -13,14 +13,14 @@ hi = 1
 
 # set up path
 x_goal = 5000 # m
-speed_limit = 30 / 2.23694 # mph > m/s
+speed_limit = 25 #m/s
 
 # set up the gekko model
 m = GEKKO()
 
 # set up the time
 num_points = 50 # more points is more accurate, but every point adds 2 DOF
-max_time = 200
+max_time = 500
 m.time = np.linspace(0, 1, num_points)
 
 # set up the Manipulated Variables
@@ -36,13 +36,13 @@ for s in (ac_ped, br_ped, tf):
 
 # set up the variables
 x = m.Var(value=0, lb=0, ub=x_goal)
-v = m.Var(value=0, lb=0)#, ub=speed_limit)
+v = m.Var(value=0, lb=0, ub=speed_limit)
 a = m.Var(value=0, ub=2, lb=-2)
 
 # set up the gears (1 is in the gear, 0 is not in the gear)
 in_gr_1 = m.MV(integer=True, value=1, lb=0, ub=1) 
-in_gr_2 = m.MV(integer=True, value=1, lb=0, ub=1)
-in_gr_3 = m.MV(integer=True, value=1, lb=0, ub=1)
+in_gr_2 = m.MV(integer=True, value=0, lb=0, ub=1)
+in_gr_3 = m.MV(integer=True, value=0, lb=0, ub=1)
 gear_ratio = m.Var(value=car.ge[0])
 
 # turn on the gears
@@ -72,15 +72,18 @@ m.Equation(a == 1.0/(car.m+car.load) * \
 				1.0 / (car.m+car.load) * \
 				(car.Fb*br_ped - \
 				0.5*car.rho*car.Cd*car.A*v**2))
+
 				
 # don't use break and accelerator at the same time
 m.Equation(ac_ped * br_ped == 0)
 
-# set up the gear logic
+# set up the gear logic (pick 1 of 4)
 m.Equation(in_gr_1 * (v-gcv[0]) <= 0)# in gear 1 when v < gcv[0]
 m.Equation(in_gr_2 * (v-gcv[0]) * (v-gcv[1]) <= 0) # in gear 2 when v < gcv[1]
 m.Equation(in_gr_3 * (v-gcv[1]) >= 0) # in gear 3 when v > gcv[2]
 m.Equation(in_gr_1 + in_gr_2 + in_gr_3 == 1) # must be in a gear
+
+# set the gear ratio based on the gear
 m.Equation(gear_ratio == car.ge[0]*in_gr_1 + car.ge[1]*in_gr_2 + car.ge[2]*in_gr_3)
 
 # set up the objective
@@ -93,17 +96,10 @@ m.options.IMODE = 6
 m.options.SOLVER = 1
 
 # set up the objective
-m.Obj(100*ac_ped + tf)
+m.Obj(100*ac_ped + tf)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
 
 # solve
 m.solve()
-
-# calculate the instantaneous mpg
-#mpg = np.array(v.value) *2.23694/ (np.array(G.value)**2+0.1) * np.array(G.value)
-
-#print(FUEL[-1], "gallons used")
-#print(tf.NEWVAL, "seconds taken")
-#print(x_goal/FUEL[-1], "average miles per gallon")
 
 # plot the results
 time = np.linspace(0, 1, num_points)*tf.NEWVAL
@@ -119,10 +115,11 @@ plt.subplot(513)
 plt.plot(time, np.array(a.value))
 plt.ylabel('acceleration\n(m/s/s)')
 plt.subplot(514)
-plt.plot(time, in_gr_1, label='Gear 1')
-plt.plot(time, in_gr_2, label='Gear 2')
-plt.plot(time, in_gr_3, label='Gear 3')
+plt.plot(time, np.array(in_gr_1.value)-0.2, 'x', label='Gear 1')
+plt.plot(time, np.array(in_gr_2.value)-0.1, 'o', label='Gear 2')
+plt.plot(time, in_gr_3, 'D', label='Gear 3')
 plt.ylabel('Selected Gear\n ')
+plt.ylim([0.5,1.5])
 plt.legend()
 plt.subplot(515)
 plt.plot(time, br_ped, label='Brake')
