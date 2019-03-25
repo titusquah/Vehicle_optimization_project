@@ -14,6 +14,7 @@ hi = 1
 # set up path
 x_goal = 5000 # m
 speed_limit = 25 #m/s
+stop_sign = "no"
 
 # set up the gekko model
 m = GEKKO()
@@ -59,8 +60,9 @@ gcv = [0.2, 7.1511, 11.1736, 17.8778, 20.5594] # m/s
 # add stops
 m.fix(x, num_points-1, x_goal) # destination
 
-# stop sign
-#m.fix(v, int(num_points/3), 0) 
+if (stop_sign == "yes"):
+	# stop sign
+	m.fix(v, int(num_points/3), 0) 
 
 # set up the governing equations for the car
 m.Equation(x.dt() / tf == v)
@@ -120,11 +122,45 @@ plt.plot(time, np.array(in_gr_2.value)-0.1, 'o', label='Gear 2')
 plt.plot(time, in_gr_3, 'D', label='Gear 3')
 plt.ylabel('Selected Gear\n ')
 plt.ylim([0.5,1.5])
-plt.legend()
+plt.legend(loc=2)
 plt.subplot(515)
 plt.plot(time, br_ped, label='Brake')
 plt.plot(time, ac_ped, label='Accelerator')
 plt.ylabel('Pedal Position\n (%)')
 plt.xlabel('Time (s)')
-plt.legend()
-plt.show()	
+plt.legend(loc=2)
+plt.show()
+
+# set up the plot
+plt.figure(figsize=(10, 5))
+plt.ion()
+
+# add some animation because it's cool
+xs = np.array(x.value)
+
+if (stop_sign == "yes"):
+	# get the stop sign position
+	st_ps = xs[int(num_points/3)]
+
+for i in range(len(m.time)):
+	plt.clf()
+	# the car can be a green box. the road will be a black line.
+	# set the ylim
+	plt.ylim([-0.1, 0.5])
+	
+	# start with the road
+	plt.plot([0, x_goal], [0, 0], 'k-', linewidth=5)
+	
+	if (stop_sign == "yes"):
+		# draw the stop sign
+		plt.plot([st_ps, st_ps], [0, 0.1], 'k-', linewidth=2)
+		plt.plot(st_ps, 0.1, 'rH', markersize=15)
+	
+	# now plot the car
+	plt.plot(xs[i], 0.01, 'gs', markersize=20, label='Car')
+	plt.legend()
+	
+	# plot it
+	plt.legend(loc=2)
+	plt.draw()
+	plt.pause(0.1)
