@@ -16,16 +16,16 @@ stop_sign = "no"
 gcv = [0.2, 7.1511, 11.1736, 17.8778, 20.5594] # m/s
 
 #%%Vehicle simulator
-def vehicle(u,eng_w,v0,ws,delta_t):
+def vehicle(u,eng_w,v0,ws,delta_t,gb_op): #ws  and gb_op are lists of len 2
   if u > 0:
     eng_tq= car.eng_wot(eng_w) * u/100
   else:   
     eng_tq= car.eng_wot(eng_w)
   gb_rat, gb_eff = car.g_box(v0)
   gear= car.gb[int(gb_rat)]
-  gb_opt=eng_tq * gear * gb_eff
-  wh_spt= gb_opt * car.Fdr * car.Fef
-  wh_spd= odeint(car.roadload, ws, [0,delta_t], args=(wh_spt,u))
+  gb_opt=eng_tq * gear * gb_eff- (car.Igb_o + car.Igb_i) * (gb_op[1] - gb_op[0])/delta_t
+  wh_spt= gb_opt * car.Fdr * car.Fef- (car.wh_inf + car.wh_inr) * (ws[1] - ws[0])/delta_t
+  wh_spd= odeint(car.roadload, ws[1], [0,delta_t], args=(wh_spt,u))
   ws=wh_spd[-1]
   gb_op=ws*car.Fdr
   gb_ip=gb_op* gear
