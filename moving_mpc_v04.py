@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import *
 from scipy.integrate import odeint
 from gekko import GEKKO
-import car_v03 as car
+import car_v04 as car
 
 #%%Parameters
 num_points = 50 # more points is more accurate, but every point adds 2 DOF
@@ -13,7 +13,7 @@ x_goal = 5000 # m
 speed_limit = 25 #m/s
 stop_sign = "no"
 
-gcv = [0.2, 7.1511, 11.1736, 17.8778, 20.5594] # m/s
+gcv = [7.1511, 11.1736, 17.8778, 20.5594] # m/s
 
 #%%Vehicle simulator
 def vehicle(u,eng_w,v0,ws,delta_t,gb_op): #ws  and gb_op are lists of len 2
@@ -57,32 +57,46 @@ x = mpc.SV(value=0, lb=0, ub=x_goal)
 v = mpc.SV(value=0, lb=0, ub=speed_limit) #vs
 a = mpc.SV(value=0, ub=5, lb=-5)          #acc
 
+ge=mpc.Param(car.ge)
+gb=mpc.Param(car.gb)
+Igb_o=mpc.Param(car.Igb_o)
+Igb_i=mpc.Param(car.Igb_i)
+
+
+eng_tq= mpc.SV(value=0)
+gb_rat= mpc.SV(value=0)
+gb_eff= mpc.SV(value=car.ge[0])
+gear= mpc.SV(value=0)
+gb_opt= mpc.SV(value=0)
+wh_spt= mpc.SV(value=0)
+ws= mpc.SV(value=0)
+gb_op= mpc.SV(value=0)
+gb_ip= mpc.SV(value=0)
+eng_w= mpc.SV(value=car.eng_wmin,lb=car.eng_wmin,ub=car.eng_wmax)
+eng_wot=mpc.Var() #create interpolator variable for eng_wot
+
 # set up the Manipulated Variables
 ac_ped = mpc.MV(value=0, lb=0, ub=100) #+u
 br_ped = mpc.MV(value=0, lb=0, ub=100) #-u
+brmac=mpc.Intermediate(br_ped-ac_ped) #brake-acc
+u=mpc.sign2(brmac) #returns 1 or -1 based on acpbr sign
+um=mpc.Intermediate((u+1)/2) #1 if brake, 0 if accelerate
 
 # set up the gears (1 is in the gear, 0 is not in the gear)
-in_gr = [mpc.MV(integer=True, value=0, lb=0, ub=1) for i in range(5)] #gvar
+in_gr = [mpc.MV(integer=True, value=0, lb=0, ub=1) for i in range(6)] #gb_rat
 in_gr[0].VALUE=1
 
-gear_ratio = mpc.SV(value=car.ge[0])
+gear_ratio = mpc.SV(value=car.ge[0]) #gb_eff
 
 # set up the time variable (to minimize)
 tf = mpc.CV(value=100, lb=1, ub=max_time) #s
 
 # turn them 'on'
-for s in (ac_ped, br_ped, tf,in_gr_1, in_gr_2, in_gr_3):
+for s in (ac_ped, br_ped, tf):
 	s.STATUS = 1
-    
-
-
-
-
 # turn on the gears
-for s in ():
+for s in in_gr:
 	s.STATUS = 1
-# set the cutoffs for the gears
-
 
 # I'm going to assume that car's fuel pump is a plunger type,
 # so the fuel rate is proportional to the %pedal
@@ -94,8 +108,13 @@ mpc.fix(x, num_points-1, x_goal) # destination
 if (stop_sign == "yes"):
 	# stop sign
 	mpc.fix(v, int(num_points/3), 0) 
+#interpolators
+
+mpc.cspline(eng_w,eng_wot,car.eng_spd,car.eng_trq,True)
 
 # set up the governing equations for the car
+mpc.Equation(eng_tq==eng_wot * ac_ped/100+eng_wot*um)    
+    
 mpc.Equation(x.dt() / tf == v)
 mpc.Equation(v.dt() / tf == a)
 mpc.Equation(a == 1.0/(car.m+car.load) * \
@@ -111,13 +130,24 @@ mpc.Equation(a == 1.0/(car.m+car.load) * \
 mpc.Equation(ac_ped * br_ped == 0)
 
 # set up the gear logic (pick 1 of 4)
-mpc.Equation(in_gr_1 * (v-gcv[0]) <= 0)# in gear 1 when v < gcv[0]
-mpc.Equation(in_gr_2 * (v-gcv[0]) * (v-gcv[1]) <= 0) # in gear 2 when v < gcv[1]
-mpc.Equation(in_gr_3 * (v-gcv[1]) >= 0) # in gear 3 when v > gcv[2]
-mpc.Equation(in_gr_1 + in_gr_2 + in_gr_3 == 1) # must be in a gear
+mpc.Equation((v+1)**in_gr[0] == 1)# in gear 0 when v =0
+mpc.Equation(in_gr[1] * (v-gcv[0]) <= 0)# in gear 1 when v < gcv[0]
+mpc.Equation(in_gr[2] * (v-gcv[0]) * (v-gcv[1]) <= 0) # in gear 2 when v < gcv[1]
+mpc.Equation(in_gr[3] * (v-gcv[1]) * (v-gcv[2]) <= 0) # in gear 3 when v > gcv[2]
+mpc.Equation(in_gr[4] * (v-gcv[2]) * (v-gcv[3]) <= 0) # in gear 4 when v > gcv[2]
+mpc.Equation(in_gr[5] * (v-gcv[3]) >= 0) # in gear 5 when v > gcv[3]
+
+mpc.Equation(in_gr[0] + in_gr[1] + in_gr[2]+ in_gr[3]+ in_gr[4]+ in_gr[5] == 1) # must be in a gear
+mpc.Equation(gb_rat==in_gr[0]*0 + in_gr[1]*1 + in_gr[2]*2+ in_gr[3]*3+ in_gr[4]*4+ in_gr[5]*5)
 
 # set the gear ratio based on the gear
-mpc.Equation(gear_ratio == car.ge[0]*in_gr_1 + car.ge[1]*in_gr_2 + car.ge[2]*in_gr_3)
+mpc.Equation(gb_eff == ge[0]*in_gr[0] + ge[1]*in_gr[1] + ge[2]*in_gr[2]+ ge[3]*in_gr[3]\
+             + ge[4]*in_gr[4]+ ge[5]*in_gr[5])
+mpc.Equation(gear==gb[0]*in_gr[0] + gb[1]*in_gr[1] + gb[2]*in_gr[2]+ gb[3]*in_gr[3]\
+             + gb[4]*in_gr[4]+ gb[5]*in_gr[5])
+mpc.Equation(gb_opt==eng_tq * gear * gb_eff- (Igb_o + Igb_i) * (gb_op.dt()))
+
+mpc.Equation(wh_spt== gb_opt * car.Fdr * car.Fef- (car.wh_inf + car.wh_inr) * (ws[1] - ws[0])/delta_t)
 
 # set up the objective
 last = np.zeros(num_points)
