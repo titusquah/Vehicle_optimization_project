@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import *
 from scipy.integrate import odeint
 from gekko import GEKKO
-import vehicle_model_v03 as car
+import car_v03 as car
 
 #%%Parameters
 num_points = 50 # more points is more accurate, but every point adds 2 DOF
@@ -13,39 +13,76 @@ x_goal = 5000 # m
 speed_limit = 25 #m/s
 stop_sign = "no"
 
+gcv = [0.2, 7.1511, 11.1736, 17.8778, 20.5594] # m/s
 
+#%%Vehicle simulator
+def vehicle(u,eng_w,v0,ws,delta_t):
+  if u > 0:
+    eng_tq= car.eng_wot(eng_w) * u/100
+  else:   
+    eng_tq= car.eng_wot(eng_w)
+  gb_rat, gb_eff = car.g_box(v0)
+  gear= car.gb[int(gb_rat)]
+  gb_opt=eng_tq * gear * gb_eff
+  wh_spt= gb_opt * car.Fdr * car.Fef
+  wh_spd= odeint(car.roadload, ws, [0,delta_t], args=(wh_spt,u))
+  ws=wh_spd[-1]
+  gb_op=ws*car.Fdr
+  gb_ip=gb_op* gear
+  eng_w=gb_ip* 60 / (2 * np.pi) #eng_sp
+  if eng_w < car.eng_wmin:
+    eng_w = car.eng_wmin
+  vs= ws * car.wh_rd
+  acc = (vs - v0) / (delta_t * 9.81)
+        
+  return [eng_tq, #0
+          gb_rat, #1
+          gb_eff, #2
+          gear,   #3
+          gb_opt, #4
+          wh_spt, #5
+          ws,     #6
+          gb_op,  #7
+          gb_ip,  #8
+          eng_w,  #9
+          vs,     #10
+          acc]    #11
 
 #%%Gekko MPC
 mpc=GEKKO()
 mpc.time=np.linspace(0,1,num_points) 
 
-# set up the Manipulated Variables
-ac_ped = mpc.MV(value=0, lb=0, ub=100)
-br_ped = mpc.MV(value=0, lb=0, ub=100)
-
-# set up the time variable (to minimize)
-tf = mpc.CV(value=100, lb=1, ub=max_time)
-
-# turn them 'on'
-for s in (ac_ped, br_ped, tf):
-	s.STATUS = 1
-    
 # set up the variables
 x = mpc.SV(value=0, lb=0, ub=x_goal)
-v = mpc.SV(value=0, lb=0, ub=speed_limit)
-a = mpc.SV(value=0, ub=2, lb=-2)
+v = mpc.SV(value=0, lb=0, ub=speed_limit) #vs
+a = mpc.SV(value=0, ub=5, lb=-5)          #acc
+
+# set up the Manipulated Variables
+ac_ped = mpc.MV(value=0, lb=0, ub=100) #+u
+br_ped = mpc.MV(value=0, lb=0, ub=100) #-u
 
 # set up the gears (1 is in the gear, 0 is not in the gear)
-in_gr_1 = mpc.MV(integer=True, value=1, lb=0, ub=1) 
-in_gr_2 = mpc.MV(integer=True, value=0, lb=0, ub=1)
-in_gr_3 = mpc.MV(integer=True, value=0, lb=0, ub=1)
+in_gr = [mpc.MV(integer=True, value=0, lb=0, ub=1) for i in range(5)] #gvar
+in_gr[0].VALUE=1
+
 gear_ratio = mpc.SV(value=car.ge[0])
 
+# set up the time variable (to minimize)
+tf = mpc.CV(value=100, lb=1, ub=max_time) #s
+
+# turn them 'on'
+for s in (ac_ped, br_ped, tf,in_gr_1, in_gr_2, in_gr_3):
+	s.STATUS = 1
+    
+
+
+
+
 # turn on the gears
-for s in (in_gr_1, in_gr_2, in_gr_3):
+for s in ():
 	s.STATUS = 1
 # set the cutoffs for the gears
-gcv = [0.2, 7.1511, 11.1736, 17.8778, 20.5594] # m/s
+
 
 # I'm going to assume that car's fuel pump is a plunger type,
 # so the fuel rate is proportional to the %pedal
@@ -91,70 +128,10 @@ last = mpc.Param(value=last)
 mpc.options.IMODE = 6
 mpc.options.SOLVER = 1
 
+
 # set up the objective
 mpc.Obj(100*ac_ped + tf)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
+#%% Simulate
+test_data=[[0]]*6 #[x,v,a,gear,acc,bra]
 
-# solve
-mpc.solve()
 
-# plot the results
-time = np.linspace(0, 1, num_points)*tf.NEWVAL
-plt.figure(figsize=(10, 10))
-plt.subplot(511)
-plt.plot(time, np.array(x.value))
-plt.plot([0, tf.NEWVAL], np.full(2,x_goal), label='goal')
-plt.ylabel('position\n(m)')
-plt.subplot(512)
-plt.plot(time, np.array(v.value))
-plt.ylabel('velocity\n(m/s)')
-plt.subplot(513)
-plt.plot(time, np.array(a.value))
-plt.ylabel('acceleration\n(m/s/s)')
-plt.subplot(514)
-plt.plot(time, np.array(in_gr_1.value)-0.2, 'x', label='Gear 1')
-plt.plot(time, np.array(in_gr_2.value)-0.1, 'o', label='Gear 2')
-plt.plot(time, in_gr_3, 'D', label='Gear 3')
-plt.ylabel('Selected Gear\n ')
-plt.ylim([0.5,1.5])
-plt.legend(loc=2)
-plt.subplot(515)
-plt.plot(time, br_ped, label='Brake')
-plt.plot(time, ac_ped, label='Accelerator')
-plt.ylabel('Pedal Position\n (%)')
-plt.xlabel('Time (s)')
-plt.legend(loc=2)
-plt.show()
-
-# set up the plot
-plt.figure(figsize=(10, 5))
-plt.ion()
-
-# add some animation because it's cool
-xs = np.array(x.value)
-
-if (stop_sign == "yes"):
-	# get the stop sign position
-	st_ps = xs[int(num_points/3)]
-
-for i in range(len(mpc.time)):
-	plt.clf()
-	# the car can be a green box. the road will be a black line.
-	# set the ylim
-	plt.ylim([-0.1, 0.5])
-	
-	# start with the road
-	plt.plot([0, x_goal], [0, 0], 'k-', linewidth=5)
-	
-	if (stop_sign == "yes"):
-		# draw the stop sign
-		plt.plot([st_ps, st_ps], [0, 0.1], 'k-', linewidth=2)
-		plt.plot(st_ps, 0.1, 'rH', markersize=15)
-	
-	# now plot the car
-	plt.plot(xs[i], 0.01, 'gs', markersize=20, label='Car')
-	plt.legend()
-	
-	# plot it
-	plt.legend(loc=2)
-	plt.draw()
-	plt.pause(0.1)
