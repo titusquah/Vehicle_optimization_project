@@ -61,7 +61,7 @@ eng_wmax  = 9000
 eng_w     = eng_wmin
 eng_t     = 0
 vgear     = 0.0
-
+Iw    = ((m + load)*wh_rd**2) + wh_inf + wh_inr
 #Drive cycle data
 grade = 0                  #road grade factor
 
