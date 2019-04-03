@@ -57,10 +57,6 @@ x = mpc.SV(value=0, lb=0, ub=x_goal)
 v = mpc.SV(value=0, lb=0, ub=speed_limit) #vs
 a = mpc.SV(value=0, ub=5, lb=-5)          #acc
 
-ge=mpc.Param(car.ge)
-gb=mpc.Param(car.gb)
-Igb_o=mpc.Param(car.Igb_o)
-Igb_i=mpc.Param(car.Igb_i)
 
 
 eng_tq= mpc.SV(value=0)
@@ -141,13 +137,25 @@ mpc.Equation(in_gr[0] + in_gr[1] + in_gr[2]+ in_gr[3]+ in_gr[4]+ in_gr[5] == 1) 
 mpc.Equation(gb_rat==in_gr[0]*0 + in_gr[1]*1 + in_gr[2]*2+ in_gr[3]*3+ in_gr[4]*4+ in_gr[5]*5)
 
 # set the gear ratio based on the gear
-mpc.Equation(gb_eff == ge[0]*in_gr[0] + ge[1]*in_gr[1] + ge[2]*in_gr[2]+ ge[3]*in_gr[3]\
-             + ge[4]*in_gr[4]+ ge[5]*in_gr[5])
-mpc.Equation(gear==gb[0]*in_gr[0] + gb[1]*in_gr[1] + gb[2]*in_gr[2]+ gb[3]*in_gr[3]\
-             + gb[4]*in_gr[4]+ gb[5]*in_gr[5])
-mpc.Equation(gb_opt==eng_tq * gear * gb_eff- (Igb_o + Igb_i) * (gb_op.dt()))
+mpc.Equation(gb_eff == car.ge[0]*in_gr[0] + car.ge[1]*in_gr[1] + car.ge[2]*in_gr[2]+ car.ge[3]*in_gr[3]\
+             + car.ge[4]*in_gr[4]+ car.ge[5]*in_gr[5])
+mpc.Equation(gear==car.gb[0]*in_gr[0] + car.gb[1]*in_gr[1] + car.gb[2]*in_gr[2]+ car.gb[3]*in_gr[3]\
+             + car.gb[4]*in_gr[4]+ car.gb[5]*in_gr[5])
+mpc.Equation(gb_opt==eng_tq * gear * gb_eff- (car.Igb_o + car.Igb_i) * (gb_op.dt()))
 
-mpc.Equation(wh_spt== gb_opt * car.Fdr * car.Fef- (car.wh_inf + car.wh_inr) * (ws[1] - ws[0])/delta_t)
+mpc.Equation(wh_spt== gb_opt * car.Fdr * car.Fef- (car.wh_inf + car.wh_inr) * ws.dt())
+
+m.Equation(wh_spd.dt()= odeint(car.roadload, ws[1], [0,delta_t], args=(wh_spt,u)))
+
+
+    if u >= 0:
+        dw_dt = 1/Iw * (whl_t - 0.5*rho*Cd*A*wh_rd**3*ws**2 - wh_rd*Crr*(m+load)*np.cos(grade)*ws - wh_rd*(m+load)*9.81*np.sin(grade))
+    else:
+        if v0 > 0.1:
+            dw_dt = 1/Iw * (Fb*u*wh_rd - 0.5*rho*Cd*A*wh_rd**3*ws**2 - wh_rd*Crr*(m+load)*np.cos(grade)*ws - wh_rd*(m+load)*9.81*np.sin(grade))
+        else:
+            dw_dt = 1/Iw * (Fb*0*wh_rd - 0.5*rho*Cd*A*wh_rd**3*ws**2 - wh_rd*Crr*(m+load)*np.cos(grade)*ws - wh_rd*(m+load)*9.81*np.sin(grade))
+    return dw_dt
 
 # set up the objective
 last = np.zeros(num_points)
