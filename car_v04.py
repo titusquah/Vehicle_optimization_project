@@ -78,7 +78,7 @@ def roadload(ws,t,whl_t,u,grade):
     return dw_dt
 
 #gear shift plant model & efficiency
-def g_box(vgear):
+def g_box(vgear,u):
     gvar = 0
     evar = 0
     if u > 0 or u < 0:
@@ -111,7 +111,7 @@ def g_box(vgear):
     return gvar, evar  
 
 #engine wide open throttle torque table
-def eng_wot(eng_w):
+def eng_wot(eng_w,u):
 
     if eng_w < 1000:
         eng_w = 1000
