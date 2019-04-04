@@ -162,7 +162,7 @@ mpc.Equation(wh_spt== gb_opt * car.Fdr * car.Fef)#- (car.wh_inf + car.wh_inr) * 
 #            *mpc.cos(grade)*ws - car.wh_rd*(car.m+car.load)*9.81*mpc.sin(grade)))*bsend*vlowsend)
 mpc.Equation(ws.dt()/tf==(1/car.Iw * (wh_spt - 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*ws**2 - \
              car.wh_rd*car.Crr*(car.m+car.load)*ws))*asend+\
-(1/car.Iw * (car.Fb*br_ped*car.wh_rd - 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*ws**2 - car.wh_rd*car.Crr*(car.m+car.load)\
+(1/car.Iw * (-car.Fb*br_ped*car.wh_rd - 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*ws**2 - car.wh_rd*car.Crr*(car.m+car.load)\
             *ws ))*bsend*vhighsend+\
              (1/car.Iw * ( - 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*ws**2 - car.wh_rd*car.Crr*(car.m+car.load)\
             *ws))*bsend*vlowsend)
