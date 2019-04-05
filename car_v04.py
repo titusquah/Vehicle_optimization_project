@@ -66,7 +66,7 @@ Iw    = ((m + load)*wh_rd**2) + wh_inf + wh_inr
 grade = 0                  #road grade factor
 
 #vehicle plant model
-def roadload(ws,t,whl_t,u,grade):
+def roadload(ws,t,whl_t,u,grade,v0):
     Iw    = ((m + load)*wh_rd**2) + wh_inf + wh_inr
     if u >= 0:
         dw_dt = 1/Iw * (whl_t - 0.5*rho*Cd*A*wh_rd**3*ws**2 - wh_rd*Crr*(m+load)*np.cos(grade)*ws - wh_rd*(m+load)*9.81*np.sin(grade))
