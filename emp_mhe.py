@@ -28,6 +28,7 @@ grades=np.zeros(nsteps)
 
 sp_store=[0]*2
 vs=[0]*2
+rand_vs=[0]*2
 es=[0]*2
 ies=[0]*2
 act_ped=[0]*2
@@ -37,6 +38,16 @@ gb_op=[0]*2
 grade=[0]*2
 est_v=[0,0]
 time=[0,0]
+
+gear_gear_eff_est=[0,0]
+gear_est=[1,1]
+low_vel=[0,0]
+
+tq_est=[0,0]
+gop_est=[0,0]
+eng_w_est=[0,0]
+gb_rat=[0,0]
+
 
 #%%Vehicle simulator
 def vehicle(u,eng_w,v0,ws,delta_t,gb_op,grade): #ws  and gb_op are lists of len 2
@@ -91,16 +102,17 @@ mhe_c9=mhe.Param(car.Igb_o + car.Igb_i)
 mhe_c10=mhe.Param(car.Fdr)
 
 #Shifting Parameters
-mhe_p1=mhe.FV(value=0) #gear*gear_effieciency
+mhe_p1=mhe.FV(value=0,lb=min(car.gb*car.ge),ub=max(car.gb*car.ge)) #gear*gear_effieciency
 mhe_p1.STATUS=0
 mhe_p1.FSTATUS=0
+mhe_p1.DMAX=0.1
 
 
-mhe_p2=mhe.FV(value=0) #gear
+mhe_p2=mhe.FV(value=0,lb=0,ub=5) #gear
 mhe_p2.STATUS=0 
 mhe_p2.FSTATUS=0
 
-mhe_p3=mhe.FV(value=1)#fudge brake
+mhe_p3=mhe.FV(value=1,lb=0,ub=5)#fudge brake
 mhe_p2.STATUS=0 
 mhe_p2.FSTATUS=0
 
@@ -127,8 +139,8 @@ mhe_a=mhe.SV(0)
 #sign_chk=mhe.SV(0)#dummy for sign3
 
 #controlled variable
-mhe_v=mhe.CV(value=0)
-mhe_v.WMODEL=0.1
+mhe_v=mhe.CV(value=0,lb=0)
+#mhe_v.WMODEL=10
 mhe_v.FSTATUS=1
 mhe_v.STATUS=1
 #mhe_v.MEAS_GAP=1
@@ -229,9 +241,22 @@ for i in range(nsteps - 1):
   eng_w.append(new_pts[9])
   ws.append(new_pts[6])
   gb_op.append(new_pts[7])
-  vs.append(new_pts[10])
   
-  mhe_v.MEAS=float(new_pts[10])
+  vs.append(new_pts[10])
+  gb_rat.append(new_pts[1])
+  
+#  if i==20:
+#    for fixed in (mhe_p1,mhe_p2,mhe_p3):
+#      fixed.DMAX=1
+    
+  rand_vs.append(float(new_pts[10]))
+#  if i%60==0:
+#    rand_vs.append(float(new_pts[10])+(np.random.rand()-0.5)*5)
+#  else:
+#    rand_vs.append(float(new_pts[10])+(np.random.rand()-0.5)*2)
+  
+  
+  mhe_v.MEAS=rand_vs[-1]
   if u>0:
     mhe_acc_ped.MEAS=float(act_ped[-1])
     mhe_br_ped.MEAS=0.
@@ -250,14 +275,48 @@ for i in range(nsteps - 1):
   try:
     mhe.solve()
     est_v.append(mhe_v.MODEL)
-  except:
+    
+    gear_gear_eff_est.append(mhe_p1.NEWVAL)
+    gear_est.append(mhe_p2.NEWVAL)
+    low_vel.append(mhe_p3.NEWVAL)
+    
+    tq_est.append(mhe_eng_tq.MODEL)
+    gop_est.append(mhe_gb_op.MODEL)
+    eng_w_est.append(mhe_eng_w[-1])
+  except Exception as e:
     est_v.append(est_v[-1])
+    print(e)
     break
   if i%50==0:
     print(i)
     plt.clf() 
+    plt.subplot(311)
     plt.plot(time,est_v,label='Model')
-    plt.plot(time,vs,'x',label='Actual')
+    plt.plot(time,rand_vs,'x',label='Measured')
+    plt.ylabel('Velocity (m/s)',fontsize=16)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.legend(loc=2,fontsize=16)
+    plt.subplot(312)
+    plt.plot(time,gear_gear_eff_est,label=r'Gear$\times$gear efficiency')
+    plt.plot(time,gear_est,label='Gear')
+    plt.plot(time,low_vel,label='V<0.1 (brake fudge)')
+    plt.legend(loc=2,fontsize=16)
+    plt.ylabel('Guessed Value',fontsize=16)
+    plt.xlabel('Time (s)',fontsize=16)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.subplot(313)
+    plt.plot(time,np.array(act_ped)/100,label=r'Brake/Acceleration')
+    plt.plot(time,gb_rat,label='Gear')
+    plt.plot(time,np.array(tq_est)/100,label='Torque/100')
+    plt.plot(time,np.array(gop_est)/100,label='Gear box opt/100')
+    plt.plot(time,np.array(eng_w_est)/1000,label='Engine speed /1000')
+    plt.legend(loc=2,fontsize=16)
+    plt.ylabel('Estimated Value',fontsize=16)
+    plt.xlabel('Time (s)',fontsize=16)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
     plt.draw()
     plt.pause(0.05) 
   uold=u
