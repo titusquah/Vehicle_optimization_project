@@ -6,10 +6,10 @@ from gekko import GEKKO
 import car_v04 as car
 
 #%%Parameters
-num_points = 50 # more points is more accurate, but every point adds 2 DOF
-max_time = 500
+num_points = 10 # more points is more accurate, but every point adds 2 DOF
+max_time = 20
 # set up path
-x_goal = 5000 # m
+x_goal = 100 # m
 speed_limit = 25 #m/s
 stop_sign = "no"
 
@@ -120,7 +120,7 @@ for s in in_gr:
 # This means I can minimize fuel usage by minimizing the ac_ped variable
 
 # add stops
-mpc.fix(x, num_points-1, x_goal) # destination
+#mpc.fix(x, num_points-1, x_goal) # destination
 
 #if (stop_sign == "yes"):
 #	# stop sign
@@ -136,7 +136,7 @@ mpc.Equation(eng_tq==eng_wot * ac_ped/100+eng_wot*bsend)
 mpc.Equation(ac_ped * br_ped == 0)
 
 # set up the gear logic (pick 1 of 4)
-mpc.Equation(v**in_gr[0]*in_gr[0]**v == 0)# in gear 0 when v =0
+#mpc.Equation(v**in_gr[0]*in_gr[0]**v == 0)# in gear 0 when v =0
 mpc.Equation(in_gr[1] * (v-gcv[0])*(-in_gr[0]*2+1) <= 0)# in gear 1 when v < gcv[0]
 mpc.Equation(in_gr[2] * (v-gcv[0]) * (v-gcv[1]) <= 0) # in gear 2 when v < gcv[1]
 mpc.Equation(in_gr[3] * (v-gcv[1]) * (v-gcv[2]) <= 0) # in gear 3 when v > gcv[2]
@@ -183,7 +183,7 @@ mpc.options.SOLVER = 1
 
 
 # set up the objective
-mpc.Obj(100*ac_int*final + tf)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
+mpc.Obj(100*ac_int*final + tf+1000 * ((x - x_goal)**2 + v + a)* final)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
 #%% Simulate
 test_data=[[0]]*6 #[x,v,a,gear,acc,bra]
 

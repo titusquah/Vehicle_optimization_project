@@ -1,7 +1,7 @@
 import numpy as np
 from gekko import GEKKO
 import matplotlib.pyplot as plt
-import NewCar as car
+import car_v04 as car
 
 # set up parameters
 v_C = np.array([5.31146, 0.52655])
@@ -12,16 +12,16 @@ lo = 0
 hi = 1
 
 # set up path
-x_goal = 1000 # m
-speed_limit = 30 #m/s
+x_goal = 100 # m
+speed_limit = 12 #m/s
 stop_sign = "nope"
 
 # set up the gekko model
 m = GEKKO()
 
 # set up the time
-num_points = 50 # more points is more accurate, but every point adds 2 DOF
-max_time = 500
+num_points = 25 # more points is more accurate, but every point adds 2 DOF
+max_time = 20
 m.time = np.linspace(0, 1, num_points)
 
 # set up the Manipulated Variables
@@ -172,35 +172,35 @@ plt.xlabel('Time (s)')
 plt.show()
 
 # set up the plot
-plt.figure(figsize=(10, 5))
-plt.ion()
+#plt.figure(figsize=(10, 5))
+#plt.ion()
+#
+## add some animation because it's cool
+#xs = np.array(x.value)
+#
+#if (stop_sign == "yes"):
+#	# get the stop sign position
+#	st_ps = xs[int(num_points/3)]
 
-# add some animation because it's cool
-xs = np.array(x.value)
-
-if (stop_sign == "yes"):
-	# get the stop sign position
-	st_ps = xs[int(num_points/3)]
-
-for i in range(len(m.time)):
-	plt.clf()
-	# the car can be a green box. the road will be a black line.
-	# set the ylim
-	plt.ylim([-0.1, 0.5])
-	
-	# start with the road
-	plt.plot([0, x_goal], [0, 0], 'k-', linewidth=5)
-	
-	if (stop_sign == "yes"):
-		# draw the stop sign
-		plt.plot([st_ps, st_ps], [0, 0.1], 'k-', linewidth=2)
-		plt.plot(st_ps, 0.1, 'rH', markersize=15)
-	
-	# now plot the car
-	plt.plot(xs[i], 0.01, 'gs', markersize=20, label='Car')
-	plt.legend()
-	
-	# plot it
-	plt.legend(loc=2)
-	plt.draw()
-	plt.pause(0.1)
+#for i in range(len(m.time)):
+#	plt.clf()
+#	# the car can be a green box. the road will be a black line.
+#	# set the ylim
+#	plt.ylim([-0.1, 0.5])
+#	
+#	# start with the road
+#	plt.plot([0, x_goal], [0, 0], 'k-', linewidth=5)
+#	
+#	if (stop_sign == "yes"):
+#		# draw the stop sign
+#		plt.plot([st_ps, st_ps], [0, 0.1], 'k-', linewidth=2)
+#		plt.plot(st_ps, 0.1, 'rH', markersize=15)
+#	
+#	# now plot the car
+#	plt.plot(xs[i], 0.01, 'gs', markersize=20, label='Car')
+#	plt.legend()
+#	
+#	# plot it
+#	plt.legend(loc=2)
+#	plt.draw()
+#	plt.pause(0.1)
