@@ -1,6 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+import pandas as pd
+
+from scipy import interpolate
+
+
+fuel_df=pd.read_csv("Vehicle engine data - Sheet1.csv")
+rpm=fuel_df['speed(rpm)'].values
+nm=fuel_df['torque(Nm)'].values
+fuel_flow=fuel_df['Fuel flow (l/hr.)'].values
+rpm1,nm1=np.meshgrid(rpm, nm)
+rpm1=rpm1.flatten()
+nm1=nm1.flatten()
+fuel_flow1=interpolate.griddata((rpm, nm), fuel_flow, (rpm1, nm1))
+fuel_flow1=fuel_flow1.reshape(len(rpm),len(rpm))
+
+rpm2,nm2=np.meshgrid(np.linspace(min(rpm),max(rpm),100),np.linspace(min(nm),max(nm),100))
+tck=interpolate.bisplrep(rpm, nm, fuel_flow) # Build the spline
+
 
 #Simulation time step definition
 tf        = 300                 #final time for simulation
@@ -142,3 +160,8 @@ tauI      = 09.0
 sum_int   = 0
 sp        = 0
 gear      = 1
+
+v_new=np.linspace(0,50,500+1)
+gb_new=[gb[int(g_box(v_new[i],10)[0])]for i in range(len(v_new))]
+ge_new=[g_box(v_new[i],10)[1]for i in range(len(v_new))]
+br_new=list(map(lambda hi: 0 if hi<0.1 else 1,v_new))
