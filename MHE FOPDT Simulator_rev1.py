@@ -43,6 +43,8 @@ mpc = GEKKO(name='mpc')
 
 # set up the empirical equations relating pedal% to velocity
 for m in (mhe, mpc):
+  
+  
   # time
   m.t = m.Var()
   
@@ -66,12 +68,13 @@ for m in (mhe, mpc):
   # set up the model variables. We will get measurements for these.
   m.eng_sp = m.SV(value=car.eng_wmin)
   m.eng_tq = m.SV(value=0)
+  m.eng_tq1 = m.SV(value=0)
   m.eng_trq = m.SV(value=0)
   m.eng_br = m.SV(value=0)
   m.gear= m.SV(value=1)
   m.fuel= m.SV(value=0.8)
       
-  br_sign=m.sign2(m.br_ped)
+  m.br_sign=m.sign2(m.br_ped)
   # set up the time variable
   m.Equation(m.t.dt() == 1)
       
@@ -98,7 +101,8 @@ for m in (mhe, mpc):
   m.cspline(m.eng_sp,m.eng_tq,car.eng_spd,car.eng_trq,True)
   m.cspline(m.eng_sp,m.eng_br,car.eng_spd,car.eng_brk,True)
   m.cspline(m.v,m.gear,car.v_new,car.gb_new,True)
-  m.Equation(m.eng_trq==m.eng_tq*m.ac_ped/100+m.eng_br*br_sign)
+  m.Equation(m.eng_tq1==m.eng_tq*m.ac_ped/100+m.eng_br*m.br_sign)
+  m.eng_trq=m.abs2(m.eng_tq1)
   
   m.bspline(m.eng_sp,m.eng_trq,m.fuel,car.tck[0],car.tck[1],car.tck[2],data=False)
   
@@ -111,13 +115,17 @@ mhe.time = np.linspace(0, 3, 31)
 # measured inputs
 for s in (mhe.ac_ped, mhe.br_ped, mhe.v):#, mhe.whl_sp, mhe.whl_tq,mhe.a,):
 	s.FSTATUS = 1 # receive measurements
+    
+mhe.v.STATUS=1
+mhe.v.MEAS_GAP=1.
 	
 # solved variables
 for s in (mhe.Ka, mhe.Da, mhe.T):
 	s.STATUS = 0 # turned on after 15 seconds
 	
 mhe.options.IMODE = 5 # MHE
-mhe.options.SOLVER = 1 # MHE
+mhe.options.SOLVER = 1 #APOPT
+mhe.options.CV_TYPE=1 #l1 norm
 
 # Configure MPC
 # 30 sec time horizon, steps of 1 sec
