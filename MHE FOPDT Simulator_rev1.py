@@ -43,7 +43,9 @@ mpc = GEKKO(name='mpc')
 
 # set up the empirical equations relating pedal% to velocity
 for m in (mhe, mpc):
-  
+  m.tf = m.FV(value=3, lb=0)
+  m.tf.FSTATUS=0
+  m.tf.STATUS=0
   
   # time
   m.t = m.Var()
@@ -76,27 +78,15 @@ for m in (mhe, mpc):
       
   m.br_sign=m.sign2(m.br_ped)
   # set up the time variable
-  m.Equation(m.t.dt() == 1)
-      
-  
-  
+  m.Equation(m.t.dt()/m.tf == 1)
+
   # set up the emperical equation
-  m.Equation(m.T * m.v.dt() + m.v == m.Ka * (m.ac_ped - m.br_ped) * (m.t - m.Da))
+  m.Equation(m.T * m.v.dt()/m.tf + m.v == m.Ka * (m.ac_ped - m.br_ped) * (m.t - m.Da))
   m.eng_sp=m.max2(car.Fdr*m.gear*60/(2*np.pi)*m.v/car.wh_rd,car.eng_wmin)
-#  m.Equation(m.eng_sp==m.gear*60/(2*np.pi)*m.v/car.wh_rd)
-  # set up the governing equations for the model
-  #m.whl_I = m.Const(((car.m + car.load)*car.wh_rd**2) + car.wh_inf + car.wh_inr)
-  #m.Equation(m.whl_sp.dt() == 1/m.whl_I * (m.whl_tq \
-  #- 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*m.whl_sp**2 \
-  #- car.wh_rd*car.Crr*(car.m+car.load)*m.whl_sp) +\
-  #1/m.whl_I * (car.Fb*m.br_ped*car.wh_rd \
-  #- 0.5*car.rho*car.Cd*car.A*car.wh_rd**3*m.whl_sp**2 \
-  #- car.wh_rd*car.Crr*(car.m+car.load)*m.whl_sp))
-  #m.Equation(m.v == m.whl_sp * car.wh_rd)
   
   # set up the general equations
-  m.Equation(m.v.dt() == m.a)
-  m.Equation(m.x.dt() == m.v)
+  m.Equation(m.v.dt()/m.tf == m.a)
+  m.Equation(m.x.dt()/m.tf == m.v)
   
   m.cspline(m.eng_sp,m.eng_tq,car.eng_spd,car.eng_trq,True)
   m.cspline(m.eng_sp,m.eng_br,car.eng_spd,car.eng_brk,True)
@@ -109,8 +99,8 @@ for m in (mhe, mpc):
   
 	
 # Configure MHE
-# 30 sec time horizon, steps of 1 sec
-mhe.time = np.linspace(0, 3, 31)
+# 3 sec time horizon, steps of 0.1 sec
+mhe.time = np.linspace(0, 1, 31)
 
 # measured inputs
 for s in (mhe.ac_ped, mhe.br_ped, mhe.v):#, mhe.whl_sp, mhe.whl_tq,mhe.a,):
