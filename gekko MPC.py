@@ -79,6 +79,8 @@ m.Equation(a == 1.0/(car.m+car.load) * \
 # don't use break and accelerator at the same time
 m.Equation(ac_ped * br_ped == 0)
 
+
+
 # set up the gear logic (pick 1 of 4)
 m.Equation(in_gr_1 * (v-gcv[0]) <= 0)# in gear 1 when v < gcv[0]
 m.Equation(in_gr_2 * (v-gcv[0]) * (v-gcv[1]) <= 0) # in gear 2 when v < gcv[1]

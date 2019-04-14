@@ -92,7 +92,7 @@ for m in (mhe, mpc):
   m.cspline(m.eng_sp,m.eng_br,car.eng_spd,car.eng_brk,True)
   m.cspline(m.v,m.gear,car.v_new,car.gb_new,True)
   m.Equation(m.eng_tq1==m.eng_tq*m.ac_ped/100+m.eng_br*m.br_sign)
-  m.eng_trq=m.abs2(m.eng_tq1)
+  m.eng_trq=m.max2(m.eng_tq1,0)
   
   m.bspline(m.eng_sp,m.eng_trq,m.fuel,car.tck[0],car.tck[1],car.tck[2],data=False)
   
@@ -118,8 +118,8 @@ mhe.options.SOLVER = 1 #APOPT
 mhe.options.CV_TYPE=1 #l1 norm
 
 # Configure MPC
-# 30 sec time horizon, steps of 1 sec
-mpc.time = np.linspace(0, 30, 31)
+# tf sec time horizon, steps of tf/30 sec
+mpc.time = np.linspace(0, 1, 31)
 
 # measured inputs
 for s in (mpc.Ka, mpc.Da, mpc.T):
