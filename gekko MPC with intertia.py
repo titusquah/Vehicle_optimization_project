@@ -12,7 +12,7 @@ lo = 0
 hi = 1
 
 # set up path
-x_goal = 100 # m
+x_goal = 300 # m
 speed_limit = 12 #m/s
 stop_sign = "nope"
 

@@ -148,15 +148,16 @@ mpc.x.STATUS=1
 mpc.x.FSTATUS=1
 mpc.x.SPLO=xgoals[0]-xldb
 mpc.x.SPHI=xgoals[0]+xhdb
-mpc.x.WSPLO=100
-mpc.x.WSPHI=1e4
+mpc.x.UPPER=xgoals[0]+xhdb
+mpc.x.WSPLO=1
+mpc.x.WSPHI=100
 
 # adjusted parameters
 for s in (mpc.ac_ped, mpc.br_ped):
   s.STATUS = 1
   s.FSTATUS = 0
 
-#mpc.Obj(mpc.fuel_int*mpc.final)#+100000*((mpc.x-mpc_xgoal)*mpc.final)**2)
+mpc.Obj(mpc.fuel_int*mpc.final*2e-3)#+100000*((mpc.x-mpc_xgoal)*mpc.final)**2)
 
 mpc.options.IMODE = 6 # MPC
 mpc.options.SOLVER = 1 #APOPT
@@ -170,10 +171,10 @@ mpc.options.CV_TYPE=1 #l1 norm
 make_mp4 = False
 
 #Simulation time step definition
-tf        = 300                 #final time for simulation
-nsteps    = 3001                 #number of time steps
+tf        = 15                #final time for simulation
+nsteps    = 151                 #number of time steps
 delta_t   = tf / (nsteps - 1)   #length of each time step
-ts        = np.linspace(0,tf,nsteps)
+
 #Advanced cyber driver
 step      = [0]   #assigning array for pedal position
 #step[11:] = 75.0               #75% @ timestep 11
@@ -270,11 +271,12 @@ plt.ion()
 plt.show()
 for i in range(nsteps-1):
   time.append(time[-1]+delta_t)
-  if vs[-1]<0.1 and x_est[-1]>xgoals[stop]:
+  if vs[-1]<0.1 and x_est[-1]>xgoals[stop]-xldb :
     stop+=1
     
   mpc.x.SPLO=xgoals[stop]-xldb
   mpc.x.SPHI=xgoals[stop]+xhdb
+#  mpc.x.UPPER=xgoals[stop]+xhdb
   
   splo.append(mpc.x.SPLO)
   sphi.append(mpc.x.SPHI)
@@ -307,8 +309,8 @@ for i in range(nsteps-1):
       br_ped.append(mpc.br_ped.NEWVAL)
       
   except:
-    ac_ped.append(ac_ped[-1])
-    br_ped.append(br_ped[-1])
+    ac_ped.append(0)#ac_ped[-1])
+    br_ped.append(10)#br_ped[-1])
     
     print("MPC Failed:{0}".format(datetime.now()))
   u=ac_ped[-1]-br_ped[-1]
@@ -364,7 +366,7 @@ for i in range(nsteps-1):
     et_pred.append(mhe.eng_trq[-1])
     es_pred.append(mhe.eng_sp[-1])
 #    br_pred.append(mhe.eng_br[-1])
-    ff_pred.append(mhe.fuel[-1])
+    ff_pred.append(ff_pred[-1]+mhe.fuel[-1]/60*car.delta_t)
 #    x_est.append(mhe.x[-1])
   except KeyboardInterrupt :
     print('stopping')
@@ -419,7 +421,7 @@ for i in range(nsteps-1):
   plt.subplot(515)
   
   plt.plot(time, ff_pred, 'r-', label='Model')
-  plt.ylabel('Fuel flow (L/min)')
+  plt.ylabel('Fuel used (L)')
   plt.xlabel('Time')
   plt.legend()
   
@@ -456,7 +458,7 @@ plt.legend()
 plt.subplot(515)
 
 plt.plot(time, ff_pred, 'r-', label='Model')
-plt.ylabel('Fuel flow (L/min)')
+plt.ylabel('Fuel used (L)')
 plt.xlabel('Time')
 plt.legend()
 plt.show()

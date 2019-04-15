@@ -183,7 +183,7 @@ mpc.options.SOLVER = 1
 
 
 # set up the objective
-mpc.Obj(100*ac_int*final + tf+1000 * ((x - x_goal)**2 + v + a)* final)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
+mpc.Obj(tf+1000 * ((x - x_goal)**2 + v + a)* final)# + 1000*(1-in_gr_1-in_gr_2-in_gr_3))
 #%% Simulate
 test_data=[[0]]*6 #[x,v,a,gear,acc,bra]
 
